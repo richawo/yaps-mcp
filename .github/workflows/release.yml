@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Verify tag
+        run: |
+          VERSION=$(node -p "require('./bundle/manifest.json').version")
+          test "$GITHUB_REF_NAME" = "v$VERSION"
+      - run: bun run package
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*/*.mcpb
+            dist/*/checksums-sha256.txt
+            dist/*/server.json

@@ -1,0 +1,44 @@
+name: Publish official MCP Registry metadata
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact released version, without a v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run package
+      - name: Verify public artifact and pin its hash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p dist/released
+          gh release download "v$VERSION" \
+            --pattern "yaps-mcp-$VERSION.mcpb" \
+            --dir dist/released
+          HASH=$(sha256sum "dist/released/yaps-mcp-$VERSION.mcpb" | cut -d' ' -f1)
+          jq --arg hash "$HASH" \
+            '.packages[0].fileSha256 = $hash' \
+            "dist/$VERSION/server.json" > server.json
+      - name: Install official publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+      - run: ./mcp-publisher validate server.json
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish server.json

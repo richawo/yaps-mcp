@@ -1,0 +1,169 @@
+{
+  "manifest_version": "0.3",
+  "name": "yaps",
+  "display_name": "Yaps Local Memory",
+  "version": "1.0.0",
+  "description": "Give AI tools permissioned access to your private local Yaps Markdown vault.",
+  "long_description": "Search, read, organise, and—only when you explicitly allow it—write your private local Yaps Markdown vault from MCP-compatible AI tools. Yaps starts read-only, rejects stale overwrites, checkpoints write batches when Vault Versioning is enabled, and keeps every operation on your computer. The free Yaps desktop app is required and includes system-wide on-device dictation.",
+  "author": {
+    "name": "Yaps",
+    "url": "https://yaps.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/richawo/yaps-mcp.git"
+  },
+  "homepage": "https://yaps.ai",
+  "documentation": "https://github.com/richawo/yaps-mcp#readme",
+  "support": "https://www.yaps.ai/support",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "YAPS_MCP_CLIENT_ID": "claude-desktop"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "yaps_status",
+      "description": "Get local Yaps MCP status."
+    },
+    {
+      "name": "vault_status",
+      "description": "Get the local vault path and note count."
+    },
+    {
+      "name": "vault_notes_list",
+      "description": "List notes with local filters."
+    },
+    {
+      "name": "vault_note_get",
+      "description": "Read one note by relative path."
+    },
+    {
+      "name": "vault_note_create",
+      "description": "Create a note when writes are enabled."
+    },
+    {
+      "name": "vault_note_update",
+      "description": "Update a note with stale-write protection."
+    },
+    {
+      "name": "vault_note_delete",
+      "description": "Delete a confirmed note when writes are enabled."
+    },
+    {
+      "name": "vault_note_move",
+      "description": "Move a note within the local vault."
+    },
+    {
+      "name": "vault_note_rename",
+      "description": "Rename a note and optionally repair backlinks."
+    },
+    {
+      "name": "vault_search",
+      "description": "Run lexical search over local notes."
+    },
+    {
+      "name": "vault_search_semantic",
+      "description": "Run local hybrid or semantic vault search."
+    },
+    {
+      "name": "vault_open_daily_note",
+      "description": "Open or create today's daily note."
+    },
+    {
+      "name": "vault_create_from_template",
+      "description": "Create a note from a local template."
+    },
+    {
+      "name": "vault_note_history_list",
+      "description": "List local history snapshots for a note."
+    },
+    {
+      "name": "vault_note_history_restore",
+      "description": "Restore a note from a local snapshot."
+    },
+    {
+      "name": "vault_note_toggle_pin",
+      "description": "Read or change a note's pinned state."
+    },
+    {
+      "name": "vault_folders_list",
+      "description": "List folders derived from local note paths."
+    },
+    {
+      "name": "vault_tags_list",
+      "description": "List local tags and note counts."
+    },
+    {
+      "name": "vault_note_tags_add",
+      "description": "Add tags to a note."
+    },
+    {
+      "name": "vault_note_tags_remove",
+      "description": "Remove tags from a note."
+    },
+    {
+      "name": "vault_note_tags_replace",
+      "description": "Replace a note's complete tag list."
+    },
+    {
+      "name": "vault_tag_rename",
+      "description": "Rename a tag across the vault."
+    },
+    {
+      "name": "vault_tag_delete",
+      "description": "Remove a tag across the vault."
+    },
+    {
+      "name": "vault_mentions_list",
+      "description": "Find text mentions and explicit wikilinks."
+    },
+    {
+      "name": "vault_mention_terms_list",
+      "description": "List explicit wikilink targets."
+    },
+    {
+      "name": "vault_backlinks",
+      "description": "Find backlinks and unlinked mentions."
+    },
+    {
+      "name": "history_list",
+      "description": "List recent local Yaps activity history."
+    },
+    {
+      "name": "usage_get_local",
+      "description": "Read local Yaps usage statistics."
+    }
+  ],
+  "tools_generated": false,
+  "keywords": [
+    "notes",
+    "memory",
+    "markdown",
+    "local-first",
+    "privacy",
+    "dictation",
+    "voice",
+    "search",
+    "obsidian"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}
