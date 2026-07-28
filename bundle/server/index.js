@@ -19,7 +19,7 @@ import {
   textResult,
 } from "./yaps-cli.js";
 
-const VERSION = "2.0.0";
+const VERSION = "2.0.1";
 
 const NATIVE_TOOL_TITLES = {
   vault_status: "Check Yaps Memory",

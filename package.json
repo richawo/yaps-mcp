@@ -1,6 +1,6 @@
 {
   "name": "yaps-mcp-bundle",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Official MCP Bundle for the local Yaps connector.",
   "type": "module",
   "private": true,
