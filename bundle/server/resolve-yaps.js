@@ -1,22 +1,22 @@
 import { constants, accessSync } from "node:fs";
 import { delimiter, join } from "node:path";
 
-export function candidatePaths({
+function candidatePathsFor(executableBase, overrideEnvName, {
   platform = process.platform,
   env = process.env,
   home = env.HOME ?? env.USERPROFILE ?? "",
 } = {}) {
-  const executableName = platform === "win32" ? "yaps_mcp.exe" : "yaps_mcp";
+  const executableName = platform === "win32" ? `${executableBase}.exe` : executableBase;
   const candidates = [];
 
-  if (env.YAPS_MCP_BINARY?.trim()) {
-    candidates.push(env.YAPS_MCP_BINARY.trim());
+  if (env[overrideEnvName]?.trim()) {
+    candidates.push(env[overrideEnvName].trim());
   }
 
   if (platform === "darwin") {
     candidates.push(
-      "/Applications/Yaps.app/Contents/MacOS/yaps_mcp",
-      home ? join(home, "Applications", "Yaps.app", "Contents", "MacOS", "yaps_mcp") : "",
+      join("/Applications/Yaps.app/Contents/MacOS", executableName),
+      home ? join(home, "Applications", "Yaps.app", "Contents", "MacOS", executableName) : "",
     );
   } else if (platform === "win32") {
     for (const base of [env.ProgramW6432, env.ProgramFiles, env["ProgramFiles(x86)"], env.LOCALAPPDATA]) {
@@ -38,7 +38,7 @@ export function candidatePaths({
   return [...new Set(candidates.filter(Boolean))];
 }
 
-export function resolveYapsMcpBinary(options = {}) {
+function resolveBinary(executableBase, overrideEnvName, options = {}) {
   const platform = options.platform ?? process.platform;
   const env = options.env ?? process.env;
   const mode = platform === "win32" ? constants.F_OK : constants.X_OK;
@@ -51,10 +51,26 @@ export function resolveYapsMcpBinary(options = {}) {
     }
   });
 
-  const explicit = env.YAPS_MCP_BINARY?.trim();
+  const explicit = env[overrideEnvName]?.trim();
   if (explicit) {
     return canAccess(explicit) ? explicit : undefined;
   }
 
-  return candidatePaths({ ...options, env }).find(canAccess);
+  return candidatePathsFor(executableBase, overrideEnvName, { ...options, env }).find(canAccess);
+}
+
+export function candidatePaths(options = {}) {
+  return candidatePathsFor("yaps_mcp", "YAPS_MCP_BINARY", options);
+}
+
+export function cliCandidatePaths(options = {}) {
+  return candidatePathsFor("yaps_cli", "YAPS_CLI_BINARY", options);
+}
+
+export function resolveYapsMcpBinary(options = {}) {
+  return resolveBinary("yaps_mcp", "YAPS_MCP_BINARY", options);
+}
+
+export function resolveYapsCliBinary(options = {}) {
+  return resolveBinary("yaps_cli", "YAPS_CLI_BINARY", options);
 }

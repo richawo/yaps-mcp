@@ -12,8 +12,8 @@ const packageJson = JSON.parse(await readFile(join(root, "package.json"), "utf8"
 if (manifest.version !== packageJson.version) {
   throw new Error("bundle/manifest.json and package.json versions must match");
 }
-if (manifest.tools.length !== 28 || new Set(manifest.tools.map((tool) => tool.name)).size !== 28) {
-  throw new Error("The bundle manifest must describe all 28 unique native Yaps MCP tools");
+if (manifest.tools.length !== 16 || new Set(manifest.tools.map((tool) => tool.name)).size !== 16) {
+  throw new Error("The bundle manifest must describe all 16 unique Yaps connector tools");
 }
 
 const outputDirectory = join(root, "dist", manifest.version);
@@ -30,8 +30,8 @@ const releaseUrl = `https://github.com/richawo/yaps-mcp/releases/download/v${man
 const serverJson = {
   $schema: "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   name: "io.github.richawo/yaps",
-  title: "Yaps Local Memory",
-  description: "Search and safely manage your private local Yaps Markdown vault from MCP clients.",
+  title: "Yaps",
+  description: "Local Memory, transcription, subtitles, meeting transcripts, translation, and media tools.",
   repository: {
     url: "https://github.com/richawo/yaps-mcp",
     source: "github",

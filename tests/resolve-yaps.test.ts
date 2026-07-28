@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { candidatePaths, resolveYapsMcpBinary } from "../bundle/server/resolve-yaps";
+import {
+  candidatePaths,
+  cliCandidatePaths,
+  resolveYapsCliBinary,
+  resolveYapsMcpBinary,
+} from "../bundle/server/resolve-yaps";
 
 describe("Yaps MCP app discovery", () => {
   test("prefers an explicit override without executing through a shell", () => {
@@ -77,5 +82,33 @@ describe("Yaps MCP app discovery", () => {
       },
     });
     expect(paths.filter((path) => path.endsWith(".local/bin/yaps_mcp"))).toHaveLength(1);
+  });
+
+  test("discovers the packaged CLI independently from the native MCP server", () => {
+    const paths = cliCandidatePaths({
+      platform: "darwin",
+      home: "/Users/example",
+      env: {
+        HOME: "/Users/example",
+        PATH: "/usr/local/bin",
+        YAPS_CLI_BINARY: "/Volumes/Yaps Test/yaps_cli",
+      },
+    });
+
+    expect(paths[0]).toBe("/Volumes/Yaps Test/yaps_cli");
+    expect(paths).toContain("/Applications/Yaps.app/Contents/MacOS/yaps_cli");
+    expect(paths).toContain("/usr/local/bin/yaps_cli");
+  });
+
+  test("resolves the Windows CLI without confusing it with yaps_mcp", () => {
+    const expected = "C:\\Program Files/Yaps/yaps_cli.exe";
+    expect(
+      resolveYapsCliBinary({
+        platform: "win32",
+        home: "C:\\Users\\example",
+        env: { ProgramFiles: "C:\\Program Files" },
+        canAccess: (path) => path === expected,
+      }),
+    ).toBe(expected);
   });
 });

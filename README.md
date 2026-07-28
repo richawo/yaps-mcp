@@ -1,79 +1,50 @@
-# Yaps MCP server
+# Yaps connector
 
-Give Claude Desktop, Claude Code, Cursor, Codex, and other MCP clients controlled access to your private local Yaps Markdown vault.
+Use local Yaps Memory, transcription, meeting transcripts, subtitles, translation, and media conversion from Claude Desktop and other MCPB-compatible clients.
 
 [Download Yaps](https://yaps.ai/download) · [Yaps website](https://yaps.ai)
 
 <!-- mcp-name: io.github.richawo/yaps -->
 
-## Why Yaps MCP
+## What it does
 
-- **Local memory, useful everywhere:** search, read, organise, and connect ordinary Markdown notes from an AI client.
-- **Read-only by default:** connecting a supported client grants reads only. Writes require a separate, explicit switch inside Yaps.
-- **Safer writes:** stale timestamps reject overwrites; confirmed deletes and traversal guards protect the vault; Vault Versioning can checkpoint write batches before they land.
-- **Broad client reach:** Yaps already configures Codex, Claude Desktop, and Cursor without replacing unrelated servers. The MCP Bundle adds one-click installation and official-registry discovery for clients that implement MCPB.
-- **A direct product path:** the bundle uses the server already shipped and updated with Yaps, so users get the desktop app, local vault, system-wide dictation, account, and subscription experience—not a disconnected fork.
+- **Memory:** search, read, create, update, and safely delete private Markdown notes through Yaps Agent Access.
+- **Transcription:** turn local audio or video into a new plain-text transcript.
+- **Meetings:** create speaker-labelled meeting transcripts from audio or video.
+- **Subtitles:** generate a new timestamped SRT file.
+- **Translation:** translate text, Markdown, plain text, or SRT files with a local Yaps model.
+- **Video to audio:** make an MP3, WAV, or M4A copy through deterministic local conversion.
 
-The bundle is intentionally small. It locates the signed `yaps_mcp` binary inside the installed Yaps desktop app and forwards stdio directly, without a shell or network proxy.
+The connector deliberately excludes Yaps workflows that Anthropic does not accept in the Connectors Directory: AI text-to-speech, audio cleanup, image background removal, and rendered video captions remain available through the Yaps plugins.
 
 ## Install
 
-### Fastest: from Yaps
-
 1. [Download and open Yaps](https://yaps.ai/download).
-2. In Yaps, open **Settings → General → Local AI integrations**.
-3. Choose **Connect Codex**, **Connect Claude Desktop**, or **Connect Cursor**.
-4. Restart that client.
+2. Sign in and activate an available free trial or Yaps Pro.
+3. Open this `.mcpb` file in Claude Desktop, or install it from **Settings → Extensions → Advanced settings**.
+4. For Memory, open **Yaps → Settings → Agent Access** and allow Claude Desktop. Reads can be enabled separately from writes.
 
-Yaps preserves every other configured MCP server and grants the selected client read-only access.
+The connector finds the signed `yaps_cli` and `yaps_mcp` binaries included with Yaps. Users do not need Rust, Python, an API key, a PATH shim, or manual JSON configuration.
 
-### MCP Bundle
+## Safety
 
-Download the `.mcpb` asset from a release and open it in an MCPB-compatible desktop client. Install Yaps first, then use **Local AI integrations** inside Yaps to connect/authorise the client. This explicit Yaps step is required because the server fails closed and a bundle is not allowed to grant itself access to a private vault.
-
-### Manual configuration
-
-Use the production binary shipped with the app and give each custom host a distinct client identity:
-
-```json
-{
-  "mcpServers": {
-    "yaps": {
-      "command": "/Applications/Yaps.app/Contents/MacOS/yaps_mcp",
-      "env": {
-        "YAPS_MCP_CLIENT_ID": "my-local-client"
-      }
-    }
-  }
-}
-```
-
-Custom identities must also be authorised in the Yaps Agent Access policy. Prefer the one-click connectors unless you specifically need a custom host.
+- Every operation stays on the user's computer.
+- Memory uses the native Yaps Agent Access allowlist and write controls.
+- Note updates can reject stale overwrites; note deletion requires confirmation.
+- File-producing tools refuse to replace an existing file.
+- Read-only and write tools are separate, titled, and annotated for Claude's permission UI.
+- The launcher invokes only fixed Yaps commands without a shell.
 
 ## Capabilities
 
-The native server exposes 28 tools covering:
+The connector exposes 16 focused tools:
 
-- vault status, filtered note lists, reads, create/update/delete, move, rename, pinning, and daily notes;
-- exact, semantic, and hybrid local search;
-- templates, snapshot history, and restore;
-- folders, tags, mentions, wikilink terms, backlinks, and unlinked mentions;
-- local Yaps status, activity history, and usage statistics.
+- five read-only Memory tools;
+- three explicitly permissioned Memory write tools;
+- connector and feature readiness checks;
+- plain transcription, speaker-labelled meeting transcription, SRT generation, text translation, file translation, and deterministic video-to-audio conversion.
 
-Every tool returns structured MCP content and declares read-only/destructive/open-world annotations. `openWorldHint` is false for every tool.
-
-## Permissions model
-
-Agent Access fails closed:
-
-1. A supported one-click connection enables **read-only** access for that client identity.
-2. Yaps rejects any client identity not on the local allowlist.
-3. Writes stay off until enabled inside Yaps.
-4. Updates can include `expected_updated_at` from the most recent read; a mismatch rejects the write.
-5. Delete requires `confirm=true` and title confirmation support.
-6. When enabled, Vault Versioning checkpoints an agent write batch before applying it.
-
-For the complete public inventory and common safety arguments, see [TOOL_REFERENCE.md](TOOL_REFERENCE.md).
+See [TOOL_REFERENCE.md](TOOL_REFERENCE.md) for the complete inventory.
 
 ## Development
 
@@ -82,13 +53,23 @@ bun install --frozen-lockfile
 bun run package
 ```
 
-`bun run package` tests the cross-platform launcher, validates the MCPB manifest with the official toolchain, creates the `.mcpb`, inspects it, calculates its SHA-256 digest, and generates a matching official-registry `server.json` under `dist/<version>/`.
+`bun run package` runs the unit suite, validates the MCPB manifest with Anthropic's official toolchain, installs production-only runtime dependencies inside the bundle, creates the `.mcpb`, inspects it, calculates its SHA-256 digest, and generates matching MCP Registry metadata under `dist/<version>/`.
 
-The native Rust server lives in the main Yaps repository and has separate protocol, permission, and full-vault smoke suites. See [PUBLISHING.md](PUBLISHING.md) for the release gate.
+The connector proxies the native Memory tools from `yaps_mcp` and uses the first-party `yaps_cli` for the other local workflows. See [PUBLISHING.md](PUBLISHING.md) for the release and directory-review gates.
+
+## Privacy Policy
+
+Yaps' public privacy policy is at [yaps.ai/privacy](https://www.yaps.ai/privacy).
+
+- **Data collection:** the connector does not collect prompts, conversation history, note contents, source media, or generated files. It reads only the local paths or Yaps notes needed for the tool call the user requested.
+- **Usage and storage:** notes, source files, models, transcripts, subtitles, translations, and converted audio stay on the user's computer. The connector has no hosted proxy or analytics client.
+- **Third-party sharing:** the connector does not send tool inputs or outputs to Yaps or another third party. Claude receives the tool result required to complete the user's request.
+- **Retention:** Yaps Memory notes and generated output files remain until the user deletes them. Temporary audio created while transcribing a video meeting is deleted immediately after that tool call.
+- **Contact:** privacy and product questions can be sent to [support@yaps.ai](mailto:support@yaps.ai).
 
 ## Support and security
 
-Use [Yaps support](https://www.yaps.ai/support) for product help. Please follow [SECURITY.md](SECURITY.md) for vulnerability reports and never attach private vault contents or raw dictation audio to a public issue.
+Use [Yaps support](https://www.yaps.ai/support) for product help. Follow [SECURITY.md](SECURITY.md) for vulnerability reports, and never attach private notes, media, transcripts, credentials, or raw Agent Access logs to a public issue.
 
 ## License
 

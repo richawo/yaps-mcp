@@ -1,20 +1,23 @@
 {
   "name": "yaps-mcp-bundle",
-  "version": "1.0.0",
-  "description": "Official MCP Bundle for the local Yaps server.",
+  "version": "2.0.0",
+  "description": "Official MCP Bundle for the local Yaps connector.",
   "type": "module",
   "private": true,
   "scripts": {
     "test": "bun test",
     "validate": "mcpb validate bundle",
     "check": "bun run test && bun run validate",
-    "package": "bun run check && node scripts/package.mjs"
+    "package": "bun run check && bun install --cwd bundle --frozen-lockfile --production && node scripts/package.mjs"
   },
   "license": "MIT",
   "homepage": "https://yaps.ai",
   "repository": {
     "type": "git",
     "url": "https://github.com/richawo/yaps-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "2.1.2",

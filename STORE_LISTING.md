@@ -1,25 +1,42 @@
-# MCP directory listing
+# Connectors Directory listing
 
-## Title
+## Name
 
-Yaps Local Memory
+Yaps
+
+## Tagline
+
+Private local Memory, transcription, subtitles, and translation
 
 ## Description
 
-Search and safely manage your private local Yaps Markdown vault from MCP clients.
+Work with private notes and media on your computer through Yaps. Search and safely update local Markdown Memory, transcribe audio and video, create speaker-labelled meeting transcripts, generate SRT subtitles, translate text and files with local models, and extract audio from video.
 
-## Long copy
+Yaps keeps supported processing local, refuses to replace existing output files, and keeps Memory read-only until the user separately enables writes in Agent Access. The Yaps desktop app plus an active free trial or Yaps Pro is required for processing features.
 
-Give your AI tools useful memory without handing a hosted connector your private notes. Yaps MCP searches, reads, organises, and—only after you explicitly enable writes—updates the ordinary Markdown vault stored on your computer. It includes semantic/hybrid search, templates, daily notes, tags, mentions, backlinks, history, stale-write protection, and optional versioned checkpoints.
+## Primary use cases
 
-The free Yaps desktop app is required. It supplies the signed native server, vault, Agent Access controls, and system-wide on-device dictation. Connect Codex, Claude Desktop, or Cursor in one click from Yaps settings, or install the MCP Bundle from a compatible directory.
+1. Search and cite private local Yaps notes.
+2. Transcribe a recording into a new text file.
+3. Create a speaker-labelled transcript from a meeting or interview.
+4. Generate timestamped SRT subtitles.
+5. Translate text, Markdown, text files, or SRT subtitles locally.
+6. Extract MP3, WAV, or M4A audio from a video without AI media generation.
 
-## Acquisition path
+## Setup requirements
 
-1. Discover **Yaps Local Memory** in an MCP registry or client directory.
-2. Install the bundle and follow the explicit **Download Yaps** link if the app is missing.
-3. Open **Local AI integrations** in Yaps and connect the client read-only.
-4. Experience local search/recall first; surface writes as an optional, separately consented capability.
-5. Let the Yaps desktop onboarding, free plan, and upgrade surfaces handle activation and subscription conversion.
+1. Download and open Yaps.
+2. Sign in and activate an available free trial or Yaps Pro.
+3. Install the MCP Bundle in Claude Desktop.
+4. For Memory, allow Claude Desktop in Yaps → Settings → Agent Access.
 
-Never advertise “trigger dictation” or “run cleanup” as MCP tools until the native server actually exposes those capabilities. Dictation and cleanup remain system-wide Yaps desktop behaviors today.
+## Category suggestions
+
+- Productivity
+- Knowledge & memory
+- Media
+- Developer tools
+
+## Exclusions
+
+The connector does not expose Yaps text-to-speech, audio cleanup, background removal, or rendered video captions because Anthropic's directory policy does not accept connectors that generate image, video, or audio through AI models. Those workflows remain available as Yaps plugins.

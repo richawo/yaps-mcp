@@ -1,12 +1,13 @@
 {
   "manifest_version": "0.3",
   "name": "yaps",
-  "display_name": "Yaps Local Memory",
-  "version": "1.0.0",
-  "description": "Give AI tools permissioned access to your private local Yaps Markdown vault.",
-  "long_description": "Search, read, organise, and—only when you explicitly allow it—write your private local Yaps Markdown vault from MCP-compatible AI tools. Yaps starts read-only, rejects stale overwrites, checkpoints write batches when Vault Versioning is enabled, and keeps every operation on your computer. The free Yaps desktop app is required and includes system-wide on-device dictation.",
+  "display_name": "Yaps",
+  "version": "2.0.0",
+  "description": "Use local Yaps Memory, transcription, meeting transcripts, subtitles, translation, and media conversion from Claude.",
+  "long_description": "Work with Yaps from Claude Desktop without sending private notes or media through a hosted connector. Search and safely update your local Markdown Memory, transcribe audio and video, create speaker-labelled meeting transcripts, generate SRT subtitles, translate text and files locally, and extract audio from video. Yaps refuses to replace existing output files, keeps Memory read-only until you enable writes in Agent Access, and processes supported workflows on your computer. The Yaps desktop app is required; processing features require an active free trial or Yaps Pro.",
   "author": {
     "name": "Yaps",
+    "email": "support@yaps.ai",
     "url": "https://yaps.ai"
   },
   "repository": {
@@ -32,131 +33,87 @@
   },
   "tools": [
     {
-      "name": "yaps_status",
-      "description": "Get local Yaps MCP status."
-    },
-    {
       "name": "vault_status",
-      "description": "Get the local vault path and note count."
+      "description": "Check local Yaps Memory readiness and note count."
     },
     {
       "name": "vault_notes_list",
-      "description": "List notes with local filters."
+      "description": "List local Yaps notes with optional filters."
     },
     {
       "name": "vault_note_get",
-      "description": "Read one note by relative path."
-    },
-    {
-      "name": "vault_note_create",
-      "description": "Create a note when writes are enabled."
-    },
-    {
-      "name": "vault_note_update",
-      "description": "Update a note with stale-write protection."
-    },
-    {
-      "name": "vault_note_delete",
-      "description": "Delete a confirmed note when writes are enabled."
-    },
-    {
-      "name": "vault_note_move",
-      "description": "Move a note within the local vault."
-    },
-    {
-      "name": "vault_note_rename",
-      "description": "Rename a note and optionally repair backlinks."
+      "description": "Read one local Yaps note by relative path."
     },
     {
       "name": "vault_search",
-      "description": "Run lexical search over local notes."
+      "description": "Search local Yaps notes lexically."
     },
     {
       "name": "vault_search_semantic",
-      "description": "Run local hybrid or semantic vault search."
+      "description": "Search local Yaps notes semantically or in hybrid mode."
     },
     {
-      "name": "vault_open_daily_note",
-      "description": "Open or create today's daily note."
+      "name": "vault_note_create",
+      "description": "Create a local Yaps note when Memory writes are enabled."
     },
     {
-      "name": "vault_create_from_template",
-      "description": "Create a note from a local template."
+      "name": "vault_note_update",
+      "description": "Update a local Yaps note with stale-write protection."
     },
     {
-      "name": "vault_note_history_list",
-      "description": "List local history snapshots for a note."
+      "name": "vault_note_delete",
+      "description": "Delete a confirmed local Yaps note when writes are enabled."
     },
     {
-      "name": "vault_note_history_restore",
-      "description": "Restore a note from a local snapshot."
+      "name": "yaps_connector_status",
+      "description": "Check local Yaps app, account, CLI, and Memory readiness."
     },
     {
-      "name": "vault_note_toggle_pin",
-      "description": "Read or change a note's pinned state."
+      "name": "yaps_features_list",
+      "description": "List local Yaps feature and model readiness."
     },
     {
-      "name": "vault_folders_list",
-      "description": "List folders derived from local note paths."
+      "name": "yaps_transcribe_media",
+      "description": "Transcribe local audio or video into a new text file."
     },
     {
-      "name": "vault_tags_list",
-      "description": "List local tags and note counts."
+      "name": "yaps_generate_subtitles",
+      "description": "Generate a new timestamped SRT subtitle file."
     },
     {
-      "name": "vault_note_tags_add",
-      "description": "Add tags to a note."
+      "name": "yaps_transcribe_meeting",
+      "description": "Create a local meeting transcript with speaker labels."
     },
     {
-      "name": "vault_note_tags_remove",
-      "description": "Remove tags from a note."
+      "name": "yaps_translate_text",
+      "description": "Translate supplied text with the installed local Yaps engine."
     },
     {
-      "name": "vault_note_tags_replace",
-      "description": "Replace a note's complete tag list."
+      "name": "yaps_translate_file",
+      "description": "Translate a local Markdown, text, or SRT file into a new file."
     },
     {
-      "name": "vault_tag_rename",
-      "description": "Rename a tag across the vault."
-    },
-    {
-      "name": "vault_tag_delete",
-      "description": "Remove a tag across the vault."
-    },
-    {
-      "name": "vault_mentions_list",
-      "description": "Find text mentions and explicit wikilinks."
-    },
-    {
-      "name": "vault_mention_terms_list",
-      "description": "List explicit wikilink targets."
-    },
-    {
-      "name": "vault_backlinks",
-      "description": "Find backlinks and unlinked mentions."
-    },
-    {
-      "name": "history_list",
-      "description": "List recent local Yaps activity history."
-    },
-    {
-      "name": "usage_get_local",
-      "description": "Read local Yaps usage statistics."
+      "name": "yaps_extract_audio",
+      "description": "Create an audio-only copy of a local video without AI media generation."
     }
   ],
   "tools_generated": false,
   "keywords": [
-    "notes",
     "memory",
+    "notes",
     "markdown",
+    "transcription",
+    "meeting",
+    "subtitles",
+    "translation",
+    "audio",
     "local-first",
-    "privacy",
-    "dictation",
-    "voice",
-    "search",
-    "obsidian"
+    "privacy"
   ],
   "license": "MIT",
+  "privacy_policies": [
+    "https://www.yaps.ai/privacy"
+  ],
   "compatibility": {
     "platforms": [
       "darwin",
