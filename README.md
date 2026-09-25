@@ -32,7 +32,7 @@ and approval are separate from package availability.
 
 1. [Download and open Yaps](https://yaps.ai/download).
 2. Sign in to Yaps. New users need a Yaps account; gated features require an active free trial or Yaps Pro. The connector is free.
-3. Open this `.mcpb` file in Claude Desktop, or install it from **Settings → Extensions → Advanced settings**.
+3. Download [the published connector 2.0.1](https://github.com/richawo/yaps-mcp/releases/download/v2.0.1/yaps-mcp-2.0.1.mcpb). Open the `.mcpb` in Claude Desktop, or install it from **Settings → Extensions → Advanced settings**. The prepared 2.0.3 source is not yet released.
 4. For Memory, open **Yaps → Settings → Agent Access** and allow Claude Desktop. Reads can be enabled separately from writes.
 
 The connector uses the same discovery contract as the Yaps plugins: explicit override, `PATH`, then verified installed-app locations. It validates `yaps_cli` with a bounded, read-only `status` call and diagnoses a missing private-vault connector separately from a missing or invalid CLI. Yaps 2.3.124 or newer is required for the safe automatic account handoff; the connector then reuses the desktop sign-in and recognises either an active free trial or Yaps Pro. Users do not need Rust, Python, an API key, a PATH shim, manual JSON configuration, or a separate connector login.
