@@ -91,4 +91,6 @@ Use [Yaps support](https://www.yaps.ai/support) for product help. Follow [SECURI
 
 ## License
 
-MIT
+The connector source is [MIT licensed](LICENSE). The same notice is included
+inside the MCPB bundle. The Yaps desktop app is a separate product with its own
+account and plan requirements.
