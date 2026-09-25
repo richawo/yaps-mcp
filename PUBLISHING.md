@@ -23,10 +23,26 @@ Keep this project at the root of the public `richawo/yaps-mcp` repository. The b
 src-tauri/tests/mcp_vault_smoke.sh --no-build --binary /Applications/Yaps.app/Contents/MacOS/yaps_mcp
 YAPS_MCP_BINARY=/Applications/Yaps.app/Contents/MacOS/yaps_mcp \
   python3 src-tauri/tests/mcp_security_smoke.py
-src-tauri/tests/mcp_phase1_smoke.sh --no-build --binary /Applications/Yaps.app/Contents/MacOS/yaps_mcp
 ```
 
-All smoke fixtures use temporary settings and vault roots. Never run mutating protocol probes without both overrides.
+Both commands isolate settings, Agent Access policy, and the vault. They remove
+inherited first-party auto-authorization so a plugin environment cannot redirect
+the probe to the installed app's settings. Never run mutating protocol probes
+without these overrides.
+
+The security command tests permissions and mutations against the production
+binary. Synthetic entitlement transitions use a debug-only settings override
+that production builds intentionally ignore. Run that separate development gate
+only against a freshly built debug binary:
+
+```bash
+YAPS_MCP_BINARY=target/debug/yaps_mcp \
+  python3 src-tauri/tests/mcp_security_smoke.py --debug-entitlement
+```
+
+The retired `mcp_phase1_smoke.sh` exits without testing anything and is not a
+release gate. Native protocol checks do not replace the packaged connector's
+16-tool checks or clean Claude Desktop testing on macOS and Windows.
 
 ## Registry commands
 

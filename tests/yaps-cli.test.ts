@@ -5,10 +5,20 @@ import { tmpdir } from "node:os";
 import {
   CLI_TOOLS,
   callCliTool,
+  cliFailureMessage,
   isCliTool,
 } from "../bundle/server/yaps-cli";
+import { nativeConnectorEnvironment } from "../bundle/server/native-environment";
 
 const temporaryDirectories: string[] = [];
+
+function activeDependencies(overrides: Record<string, unknown> = {}) {
+  return {
+    session: { auth: { authenticated: true, status: "active" } },
+    diagnoseAccount: () => ({ code: "ready", message: "Yaps is ready." }),
+    ...overrides,
+  };
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -24,7 +34,31 @@ async function fixtureDirectory() {
   return path;
 }
 
+describe("Yaps CLI failure messages", () => {
+  test("current builds explain failures in stdout JSON; older builds on stderr", () => {
+    expect(cliFailureMessage(
+      1,
+      '{"error":"Subtitles feature is not enabled.","error_code":"error"}',
+      '{"event":"progress"}\nError: Subtitles feature is not enabled.\n',
+    )).toBe("Subtitles feature is not enabled.");
+    expect(cliFailureMessage(1, "", '{"event":"progress"}\nWhisper is not installed\n'))
+      .toBe("Whisper is not installed");
+    expect(cliFailureMessage(130, "", "")).toContain("cancelled");
+    expect(cliFailureMessage(1, "", "")).toBe("Yaps exited with code 1.");
+  });
+});
+
 describe("Yaps connector CLI tools", () => {
+  test("standalone Claude Desktop never enables first-party native auto-authorization", () => {
+    const environment = nativeConnectorEnvironment({
+      PATH: "/usr/bin",
+      YAPS_MCP_AUTO_AUTHORIZE_READ: "1",
+    });
+    expect(environment.PATH).toBe("/usr/bin");
+    expect(environment.YAPS_MCP_CLIENT_ID).toBe("claude-desktop");
+    expect(environment).not.toHaveProperty("YAPS_MCP_AUTO_AUTHORIZE_READ");
+  });
+
   test("all tools have directory-safe titles and permission annotations", () => {
     expect(CLI_TOOLS).toHaveLength(8);
     for (const tool of CLI_TOOLS) {
@@ -47,12 +81,9 @@ describe("Yaps connector CLI tools", () => {
       {
         cliBinary: "/Applications/Yaps.app/Contents/MacOS/yaps_cli",
         mcpBinary: "/Applications/Yaps.app/Contents/MacOS/yaps_mcp",
-        runCli: async () => ({
-          authenticated: true,
-          status: "active",
-          email: "private@example.com",
-          plan: "basic_monthly",
-        }),
+        session: {
+          auth: { authenticated: true, status: "active" },
+        },
       },
     );
 
@@ -66,6 +97,126 @@ describe("Yaps connector CLI tools", () => {
     });
     expect(result.content[0].text).not.toContain("private@example.com");
     expect(result.content[0].text).not.toContain("basic_monthly");
+  });
+
+  test("status refreshes the recovered desktop session and specific cache guidance", async () => {
+    let sessionReads = 0;
+    const result = await callCliTool(
+      "yaps_connector_status",
+      {},
+      {
+        cliBinary: "/Applications/Yaps.app/Contents/MacOS/yaps_cli",
+        mcpBinary: "/Applications/Yaps.app/Contents/MacOS/yaps_mcp",
+        session: { auth: { authenticated: false, status: "unauthenticated" } },
+        resolveSession: async () => {
+          sessionReads += 1;
+          return {
+            auth: {
+              authenticated: true,
+              status: "verification_unavailable",
+              diagnosticCode: "account_cache_incomplete",
+            },
+            appLaunchAttempted: true,
+            appLaunchSucceeded: true,
+          };
+        },
+        diagnoseAccount: () => ({
+          code: "account_cache_incomplete",
+          message: "Yaps was opened automatically; check the internet connection and retry.",
+        }),
+      },
+    );
+
+    expect(sessionReads).toBe(1);
+    expect(result.structuredContent.account_status).toBe("verification_unavailable");
+    expect(result.structuredContent.next_step).toContain("opened automatically");
+  });
+
+  test("missing and rejected CLIs keep their connection diagnosis", async () => {
+    for (const diagnosis of [
+      { code: "cli_missing", message: "The packaged Yaps CLI could not be found." },
+      { code: "cli_invalid", message: "The configured Yaps CLI failed its safe status check." },
+    ]) {
+      const status = await callCliTool("yaps_connector_status", {}, {
+        cliBinary: undefined,
+        mcpBinary: undefined,
+        connectionDiagnosis: diagnosis,
+      });
+      expect(status.structuredContent.diagnostic_code).toBe(diagnosis.code);
+      expect(status.structuredContent.next_step).toBe(diagnosis.message);
+
+      let sessionReads = 0;
+      await expect(callCliTool("yaps_features_list", {}, {
+        cliBinary: undefined,
+        connectionDiagnosis: diagnosis,
+        resolveSession: async () => {
+          sessionReads += 1;
+          return {};
+        },
+      })).rejects.toThrow(diagnosis.message);
+      expect(sessionReads).toBe(0);
+    }
+  });
+
+  test("an accessible but failed Memory handshake is connector-unavailable", async () => {
+    const diagnosis = {
+      code: "vault_connector_unavailable",
+      message: "The Yaps CLI works, but the private-vault connector did not start.",
+    };
+    const result = await callCliTool("yaps_connector_status", {}, {
+      cliBinary: "/Applications/Yaps.app/Contents/MacOS/yaps_cli",
+      mcpBinary: "/Applications/Yaps.app/Contents/MacOS/yaps_mcp",
+      memoryServerAvailable: false,
+      connectionDiagnosis: diagnosis,
+      session: { auth: { authenticated: true, status: "active" } },
+    });
+    expect(result.structuredContent.memory_server_available).toBe(false);
+    expect(result.structuredContent.diagnostic_code).toBe("vault_connector_unavailable");
+    expect(result.structuredContent.next_step).toBe(diagnosis.message);
+  });
+
+  test("processing tools require a fresh active trial or Yaps Pro session", async () => {
+    let executions = 0;
+    let sessionReads = 0;
+    const runCli = async () => {
+      executions += 1;
+      return { features: [] };
+    };
+
+    await expect(callCliTool(
+      "yaps_features_list",
+      {},
+      {
+        cliBinary: "/fake/yaps_cli",
+        runCli,
+        resolveSession: async () => {
+          sessionReads += 1;
+          return { auth: { authenticated: true, status: "expired" } };
+        },
+        diagnoseAccount: () => ({
+          code: "account_expired",
+          message: "Yaps is signed in, but its trial or Yaps Pro access is not active.",
+        }),
+      },
+    )).rejects.toThrow("trial or Yaps Pro access is not active");
+    expect(sessionReads).toBe(1);
+    expect(executions).toBe(0);
+
+    const ready = await callCliTool(
+      "yaps_features_list",
+      {},
+      activeDependencies({
+        cliBinary: "/fake/yaps_cli",
+        runCli,
+        resolveSession: async () => {
+          sessionReads += 1;
+          return { auth: { authenticated: true, status: "active" } };
+        },
+      }),
+    );
+    expect(ready.structuredContent).toEqual({ features: [] });
+    expect(sessionReads).toBe(2);
+    expect(executions).toBe(1);
   });
 
   test("plain transcription creates a new text file and rejects overwrite", async () => {
@@ -83,7 +234,7 @@ describe("Yaps connector CLI tools", () => {
     const result = await callCliTool(
       "yaps_transcribe_media",
       { source_path: source, output_path: output },
-      { cliBinary: "/fake/yaps_cli", runCli },
+      activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
     );
     expect(await readFile(output, "utf8")).toBe("Hello from Yaps.\n");
     expect(result.structuredContent.output_path).toBe(output);
@@ -91,7 +242,7 @@ describe("Yaps connector CLI tools", () => {
     const repeated = await callCliTool(
       "yaps_transcribe_media",
       { source_path: source, output_path: output },
-      { cliBinary: "/fake/yaps_cli", runCli },
+      activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
     ).catch((error) => error);
     expect(repeated.message).toContain("Output already exists");
   });
@@ -116,17 +267,17 @@ describe("Yaps connector CLI tools", () => {
     await callCliTool(
       "yaps_generate_subtitles",
       { source_path: video },
-      { cliBinary: "/fake/yaps_cli", runCli },
+      activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
     );
     await callCliTool(
       "yaps_translate_file",
       { source_path: note, target_language: "fr" },
-      { cliBinary: "/fake/yaps_cli", runCli },
+      activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
     );
     await callCliTool(
       "yaps_extract_audio",
       { source_path: video, format: "wav" },
-      { cliBinary: "/fake/yaps_cli", runCli },
+      activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
     );
 
     expect(commands[0]).toEqual([
@@ -174,7 +325,7 @@ describe("Yaps connector CLI tools", () => {
     const result = await callCliTool(
       "yaps_transcribe_meeting",
       { source_path: video, title: "Weekly", engine: "sherpa", speakers: 3 },
-      { cliBinary: "/fake/yaps_cli", runCli },
+      activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
     );
     expect(commands).toHaveLength(2);
     expect(commands[0].slice(0, 3)).toEqual(["media", "extract-audio", video]);
@@ -185,7 +336,7 @@ describe("Yaps connector CLI tools", () => {
       callCliTool(
         "yaps_transcribe_meeting",
         { source_path: video, engine: "moss", speakers: 2 },
-        { cliBinary: "/fake/yaps_cli", runCli },
+        activeDependencies({ cliBinary: "/fake/yaps_cli", runCli }),
       ),
     ).rejects.toThrow("MOSS detects speakers automatically");
   });
@@ -195,13 +346,13 @@ describe("Yaps connector CLI tools", () => {
     const result = await callCliTool(
       "yaps_translate_text",
       { text: "Hello", target_language: "fr", source_language: "en" },
-      {
+      activeDependencies({
         cliBinary: "/fake/yaps_cli",
         runCli: async (_binary: string, args: string[]) => {
           calls.push(args);
           return { text: "Bonjour", detected_source_lang: "en" };
         },
-      },
+      }),
     );
 
     expect(calls).toEqual([

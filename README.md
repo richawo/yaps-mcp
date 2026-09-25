@@ -1,35 +1,53 @@
 # Yaps connector
 
-Use local Yaps Memory, transcription, meeting transcripts, subtitles, translation, and media conversion from Claude Desktop and other MCPB-compatible clients.
+Turn recordings into transcripts and subtitles. Translate text and files, extract
+audio from video, and use optional private Markdown memory from Claude Desktop
+and other MCPB-compatible clients.
 
 [Download Yaps](https://yaps.ai/download) · [Yaps website](https://yaps.ai)
 
 <!-- mcp-name: io.github.richawo/yaps -->
 
+**Release status:** this source prepares connector 2.0.3. The latest published
+MCPB and Registry entry are still 2.0.1. Version 2.0.3 needs the remaining Claude
+Desktop and Windows checks before release; see [PUBLISHING.md](PUBLISHING.md).
+
 ## What it does
 
-- **Memory:** search, read, create, update, and safely delete private Markdown notes through Yaps Agent Access.
 - **Transcription:** turn local audio or video into a new plain-text transcript.
 - **Meetings:** create speaker-labelled meeting transcripts from audio or video.
 - **Subtitles:** generate a new timestamped SRT file.
 - **Translation:** translate text, Markdown, plain text, or SRT files with a local Yaps model.
 - **Video to audio:** make an MP3, WAV, or M4A copy through deterministic local conversion.
+- **Memory:** search, read, create, update, and safely delete private Markdown notes through Yaps Agent Access.
 
-The connector deliberately excludes Yaps workflows that Anthropic does not accept in the Connectors Directory: AI text-to-speech, audio cleanup, image background removal, and rendered video captions remain available through the Yaps plugins.
+Try: "Transcribe this product demo and save a separate text file."
+
+This connector contains 16 tools for the workflows above. Yaps also offers
+speech, audio cleanup, image tools, rendered captions, and Auto Cut through its
+[plugin marketplace](https://github.com/richawo/yaps-plugins). Directory review
+and approval are separate from package availability.
 
 ## Install
 
 1. [Download and open Yaps](https://yaps.ai/download).
-2. Sign in and activate an available free trial or Yaps Pro.
+2. Sign in to Yaps. New users need a Yaps account; gated features require an active free trial or Yaps Pro. The connector is free.
 3. Open this `.mcpb` file in Claude Desktop, or install it from **Settings → Extensions → Advanced settings**.
 4. For Memory, open **Yaps → Settings → Agent Access** and allow Claude Desktop. Reads can be enabled separately from writes.
 
-The connector finds the signed `yaps_cli` and `yaps_mcp` binaries included with Yaps. Users do not need Rust, Python, an API key, a PATH shim, or manual JSON configuration.
+The connector uses the same discovery contract as the Yaps plugins: explicit override, `PATH`, then verified installed-app locations. It validates `yaps_cli` with a bounded, read-only `status` call and diagnoses a missing private-vault connector separately from a missing or invalid CLI. Yaps 2.3.124 or newer is required for the safe automatic account handoff; the connector then reuses the desktop sign-in and recognises either an active free trial or Yaps Pro. Users do not need Rust, Python, an API key, a PATH shim, manual JSON configuration, or a separate connector login.
+
+Memory's existing **Agent Access** permission remains an intentional desktop security control. Claude Desktop must be enabled there once before it can read private notes; the connector does not impersonate another trusted client or bypass that setting.
+
+Approve any required model download before it starts. Requested results can
+enter Claude's context. A remote session cannot reach Yaps on another computer
+through this local connector.
 
 ## Safety
 
 - Every operation stays on the user's computer.
 - Memory uses the native Yaps Agent Access allowlist and write controls.
+- Every tool refreshes and checks the sanitized desktop account state before processing; signed-out, expired, and mobile-only access fails with specific recovery guidance.
 - Note updates can reject stale overwrites; note deletion requires confirmation.
 - File-producing tools refuse to replace an existing file.
 - Read-only and write tools are separate, titled, and annotated for Claude's permission UI.

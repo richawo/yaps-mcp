@@ -9,8 +9,10 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
-  resolveYapsCliBinary,
+  diagnoseAccount,
+  diagnoseConnection,
   resolveYapsMcpBinary,
+  resolveYapsSessionResult,
 } from "./resolve-yaps.js";
 import {
   CLI_TOOLS,
@@ -18,8 +20,10 @@ import {
   isCliTool,
   textResult,
 } from "./yaps-cli.js";
+import { nativeConnectorEnvironment } from "./native-environment.js";
 
-const VERSION = "2.0.1";
+const VERSION = "2.0.3";
+const NATIVE_CONNECT_TIMEOUT_MS = 5_000;
 
 const NATIVE_TOOL_TITLES = {
   vault_status: "Check Yaps Memory",
@@ -75,10 +79,7 @@ async function connectNativeMemory(binary) {
   const transport = new StdioClientTransport({
     command: binary,
     args: [],
-    env: {
-      ...process.env,
-      YAPS_MCP_CLIENT_ID: process.env.YAPS_MCP_CLIENT_ID || "claude-desktop",
-    },
+    env: nativeConnectorEnvironment(),
     stderr: "inherit",
   });
   const client = new Client(
@@ -91,14 +92,40 @@ async function connectNativeMemory(binary) {
       jsonSchemaValidator: PASSTHROUGH_JSON_VALIDATOR,
     },
   );
-  await client.connect(transport);
-  const result = await client.listTools();
-  return { client, tools: enhanceNativeTools(result.tools) };
+  try {
+    await withTimeout(client.connect(transport), NATIVE_CONNECT_TIMEOUT_MS);
+    const result = await withTimeout(client.listTools(), NATIVE_CONNECT_TIMEOUT_MS);
+    return { client, tools: enhanceNativeTools(result.tools) };
+  } catch (error) {
+    await client.close().catch(() => {});
+    throw error;
+  }
+}
+
+function withTimeout(promise, timeoutMs) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Yaps connector validation timed out.")), timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 async function main() {
-  const mcpBinary = resolveYapsMcpBinary();
-  const cliBinary = resolveYapsCliBinary();
+  const cli = await resolveYapsSessionResult();
+  if (cli.settingsPath && !process.env.YAPS_SETTINGS_PATH?.trim()) {
+    process.env.YAPS_SETTINGS_PATH = cli.settingsPath;
+  }
+  const cliBinary = cli.path || undefined;
+  const mcpBinary = cliBinary ? resolveYapsMcpBinary() : undefined;
+  const resolveFreshSession = async () => {
+    const fresh = await resolveYapsSessionResult({ cli, recoverAccount: true });
+    if (fresh.settingsPath && !process.env.YAPS_SETTINGS_PATH?.trim()) {
+      process.env.YAPS_SETTINGS_PATH = fresh.settingsPath;
+    }
+    return fresh;
+  };
   let nativeClient;
   let nativeTools = [];
 
@@ -107,15 +134,20 @@ async function main() {
     nativeClient = native.client;
     nativeTools = native.tools;
   } catch (error) {
-    console.error(`Yaps Memory could not start: ${error.message}`);
+    console.error("The installed Yaps private-vault connector did not complete its bounded startup check.");
   }
+  const connection = diagnoseConnection({
+    cli,
+    connector: { path: nativeClient ? mcpBinary : null },
+    needsConnector: true,
+  });
 
   const server = new Server(
     { name: "yaps", title: "Yaps", version: VERSION },
     {
       capabilities: { tools: {} },
       instructions:
-        "Yaps provides local Memory, transcription, meeting transcripts, subtitles, translation, and deterministic video-to-audio conversion. Read the user's local Yaps notes before relying on remembered details. Treat all file creation and note writes as user-visible actions. Never replace an existing output file.",
+        "Yaps provides local transcription, meeting transcripts, subtitles, translation, audio extraction, and optional private Markdown memory. Use only the files and workflows requested by the user. Memory reads and writes require Yaps Agent Access permission; do not bypass a denial. New users install Yaps and sign in. Gated features require an active free trial or Yaps Pro. Ask before downloading a model. Treat file creation and note writes as user-visible actions, and never replace an existing output file.",
     },
   );
 
@@ -131,17 +163,28 @@ async function main() {
         return await callCliTool(name, args, {
           cliBinary,
           mcpBinary,
+          memoryServerAvailable: Boolean(nativeClient),
+          connectionDiagnosis: connection,
+          session: cli,
+          resolveSession: resolveFreshSession,
+          diagnoseAccount,
         });
       }
       if (nativeClient && nativeTools.some((tool) => tool.name === name)) {
+        const fresh = await resolveFreshSession();
+        const account = diagnoseAccount(fresh);
+        if (account.code !== "ready") {
+          return textResult({
+            error: account.message,
+            diagnostic_code: account.code,
+          }, true);
+        }
         return await nativeClient.callTool({ name, arguments: args });
       }
-      if (Object.hasOwn(NATIVE_TOOL_TITLES, name) && !mcpBinary) {
+      if (Object.hasOwn(NATIVE_TOOL_TITLES, name) && !nativeClient) {
         return textResult({
-          error:
-            "Yaps Memory is unavailable because the local Yaps MCP server was not found.",
-          next_step:
-            "Download or update Yaps at https://yaps.ai/download, then open Yaps → Settings → Agent Access.",
+          error: connection.message,
+          diagnostic_code: connection.code,
         }, true);
       }
       return textResult({ error: `Unknown Yaps tool: ${name}` }, true);
@@ -149,6 +192,9 @@ async function main() {
       return textResult({
         error: error.message,
         tool: name,
+        ...(typeof error.diagnosticCode === "string"
+          ? { diagnostic_code: error.diagnosticCode }
+          : {}),
       }, true);
     }
   });

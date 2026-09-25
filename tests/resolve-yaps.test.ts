@@ -4,6 +4,7 @@ import {
   cliCandidatePaths,
   resolveYapsCliBinary,
   resolveYapsMcpBinary,
+  resolveYapsSessionResult,
 } from "../bundle/server/resolve-yaps";
 
 describe("Yaps MCP app discovery", () => {
@@ -22,7 +23,7 @@ describe("Yaps MCP app discovery", () => {
     expect(paths).toContain("/Applications/Yaps.app/Contents/MacOS/yaps_mcp");
   });
 
-  test("finds per-machine and legacy per-user Windows installations", () => {
+  test("finds only the verified per-machine Windows installation", () => {
     const paths = candidatePaths({
       platform: "win32",
       home: "C:\\Users\\example",
@@ -32,10 +33,8 @@ describe("Yaps MCP app discovery", () => {
       },
     });
 
-    expect(paths).toContain("C:\\Program Files/Yaps/yaps_mcp.exe");
-    expect(paths).toContain(
-      "C:\\Users\\example\\AppData\\Local/Programs/Yaps/yaps_mcp.exe",
-    );
+    expect(paths).toContain("C:\\Program Files\\Yaps\\yaps_mcp.exe");
+    expect(paths.some((path) => path.includes("AppData"))).toBe(false);
   });
 
   test("returns the first accessible candidate and otherwise fails closed", () => {
@@ -100,15 +99,47 @@ describe("Yaps MCP app discovery", () => {
     expect(paths).toContain("/usr/local/bin/yaps_cli");
   });
 
-  test("resolves the Windows CLI without confusing it with yaps_mcp", () => {
-    const expected = "C:\\Program Files/Yaps/yaps_cli.exe";
+  test("resolves and validates the Windows CLI without confusing it with yaps_mcp", async () => {
+    const expected = "C:\\Program Files\\Yaps\\yaps_cli.exe";
     expect(
-      resolveYapsCliBinary({
+      await resolveYapsCliBinary({
         platform: "win32",
         home: "C:\\Users\\example",
         env: { ProgramFiles: "C:\\Program Files" },
         canAccess: (path) => path === expected,
+        probe: async () => ({ ok: true }),
       }),
     ).toBe(expected);
+  });
+
+  test("rejects an invalid CLI override instead of falling through", async () => {
+    expect(
+      await resolveYapsCliBinary({
+        platform: "darwin",
+        env: { HOME: "/Users/example", PATH: "/healthy", YAPS_CLI_BINARY: "/fake/yaps_cli" },
+        canAccess: () => true,
+        probe: async () => ({ ok: false, reason: "invalid_status" }),
+      }),
+    ).toBeUndefined();
+  });
+
+  test("passes automatic settings recovery through to the bundled MCP server", async () => {
+    const settingsPath = "/Users/example/Library/Application Support/com.yaps.app/settings.json";
+    const result = await resolveYapsSessionResult({
+      cli: {
+        path: "/Applications/Yaps.app/Contents/MacOS/yaps_cli",
+        source: "installed_app",
+        rejected: [],
+      },
+      platform: "darwin",
+      env: {},
+      appVersion: "2.3.124",
+      readAuth: async (selected: string | null) => selected
+        ? { ok: true, auth: { authenticated: true, status: "active", diagnosticCode: null, recommendedSettingsPath: null } }
+        : { ok: true, auth: { authenticated: false, status: "settings_path_mismatch", diagnosticCode: "settings_path_mismatch", recommendedSettingsPath: settingsPath } },
+    });
+
+    expect(result.settingsPath).toBe(settingsPath);
+    expect(result.auth?.status).toBe("active");
   });
 });

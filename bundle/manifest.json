@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "yaps",
   "display_name": "Yaps",
-  "version": "2.0.1",
-  "description": "Use local Yaps Memory, transcription, meeting transcripts, subtitles, translation, and media conversion from Claude.",
-  "long_description": "Work with Yaps from Claude Desktop without sending private notes or media through a hosted connector. Search and safely update your local Markdown Memory, transcribe audio and video, create speaker-labelled meeting transcripts, generate SRT subtitles, translate text and files locally, and extract audio from video. Yaps refuses to replace existing output files, keeps Memory read-only until you enable writes in Agent Access, and processes supported workflows on your computer. The Yaps desktop app is required; processing features require an active free trial or Yaps Pro.",
+  "version": "2.0.3",
+  "description": "Transcribe recordings, create subtitles, translate, extract audio, and use private Markdown memory with Yaps.",
+  "long_description": "Turn recordings into transcripts, speaker-labelled meeting transcripts, and SRT subtitles. Translate text and files, extract audio from video, and optionally search or update private Markdown notes. Install Yaps on the computer running Claude Desktop, open it, and sign in. New users need a Yaps account. The connector is free; gated features require an active free trial or Yaps Pro. No user API key is needed. Processing happens on your computer and requested results can enter Claude's context. Model downloads require approval. Memory reads and writes need separate Agent Access permissions. Existing output files are preserved.",
   "author": {
     "name": "Yaps",
     "email": "support@yaps.ai",

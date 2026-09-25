@@ -228,6 +228,41 @@ export function textResult(value, isError = false) {
   };
 }
 
+function terminateProcess(child) {
+  try { child.stdout?.destroy(); } catch {}
+  try { child.stderr?.destroy(); } catch {}
+  try { child.kill("SIGTERM"); } catch {}
+  const force = setTimeout(() => {
+    if (child.exitCode == null && child.signalCode == null) {
+      try { child.kill("SIGKILL"); } catch {}
+    }
+  }, 100);
+  force.unref?.();
+  child.once?.("close", () => clearTimeout(force));
+}
+
+/**
+ * Current Yaps prints {"error","error_code"} on stdout (plus an "Error: ..."
+ * line on stderr) and exits 130 when cancelled; older builds print plain text
+ * on stderr with an empty stdout. YAPS_CLI_PROGRESS=json adds NDJSON progress
+ * lines to stderr, which never explain a failure.
+ */
+export function cliFailureMessage(code, stdout, stderr) {
+  try {
+    const parsed = JSON.parse(stdout);
+    if (parsed && typeof parsed.error === "string" && parsed.error.trim()) return parsed.error.trim();
+  } catch {
+    // Older builds: fall through to stderr.
+  }
+  if (code === 130) return "The Yaps operation was cancelled before it finished.";
+  const explanation = stderr
+    .split(/\r?\n/)
+    .filter((line) => line.trim() && !line.trimStart().startsWith("{"))
+    .join("\n")
+    .trim();
+  return explanation || stdout.trim() || `Yaps exited with code ${code}.`;
+}
+
 export async function runCliJson(cliBinary, args, {
   timeoutMs = 300_000,
   spawnProcess = spawn,
@@ -249,7 +284,7 @@ export async function runCliJson(cliBinary, args, {
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
-      child.kill("SIGTERM");
+      terminateProcess(child);
       settled = true;
       reject(new Error(`Yaps timed out while running: ${args.join(" ")}`));
     }, timeoutMs);
@@ -258,11 +293,21 @@ export async function runCliJson(cliBinary, args, {
     child.stderr?.setEncoding("utf8");
     child.stdout?.on("data", (chunk) => {
       stdout += chunk;
-      if (stdout.length > 10_000_000) child.kill("SIGTERM");
+      if (stdout.length > 10_000_000 && !settled) {
+        settled = true;
+        clearTimeout(timer);
+        terminateProcess(child);
+        reject(new Error("Yaps returned too much output."));
+      }
     });
     child.stderr?.on("data", (chunk) => {
       stderr += chunk;
-      if (stderr.length > 1_000_000) child.kill("SIGTERM");
+      if (stderr.length > 1_000_000 && !settled) {
+        settled = true;
+        clearTimeout(timer);
+        terminateProcess(child);
+        reject(new Error("Yaps returned too much error output."));
+      }
     });
     child.on("error", (error) => {
       if (settled) return;
@@ -275,7 +320,7 @@ export async function runCliJson(cliBinary, args, {
       settled = true;
       clearTimeout(timer);
       if (code !== 0) {
-        reject(new Error(stderr.trim() || stdout.trim() || `Yaps exited with code ${code}.`));
+        reject(new Error(cliFailureMessage(code, stdout, stderr)));
         return;
       }
       try {
@@ -330,30 +375,50 @@ function defaultOutput(sourcePath, suffix, extension) {
   return join(parsed.dir, `${parsed.name}${suffix}${extension}`);
 }
 
-async function connectorStatus({ cliBinary, mcpBinary, runCli = runCliJson }) {
+async function connectorStatus({
+  cliBinary,
+  mcpBinary,
+  memoryServerAvailable,
+  connectionDiagnosis,
+  session,
+  resolveSession,
+  diagnoseAccount,
+}) {
   const status = {
     installed: Boolean(cliBinary || mcpBinary),
     cli_available: Boolean(cliBinary),
-    memory_server_available: Boolean(mcpBinary),
+    memory_server_available: memoryServerAvailable ?? Boolean(mcpBinary),
     authenticated: false,
     account_status: "unknown",
   };
   if (!cliBinary) {
-    status.next_step =
-      "Download Yaps from https://yaps.ai/download, open it, sign in, and finish setup.";
+    status.diagnostic_code = connectionDiagnosis?.code || "cli_missing";
+    status.next_step = connectionDiagnosis?.message
+      || "Download Yaps from https://yaps.ai/download, open it, sign in, and finish setup.";
     return status;
   }
 
   try {
-    const auth = await runCli(cliBinary, ["auth", "status"]);
+    const currentSession = resolveSession ? await resolveSession() : session;
+    const auth = currentSession?.auth;
+    if (!auth) {
+      status.next_step = diagnoseAccount
+        ? diagnoseAccount(currentSession || {}).message
+        : "Update Yaps; the connector will reuse its desktop account automatically.";
+      return status;
+    }
     status.authenticated = auth.authenticated === true;
     status.account_status = typeof auth.status === "string" ? auth.status : "unknown";
-    if (!status.authenticated) {
-      status.next_step = "Open Yaps and sign in.";
+    if (diagnoseAccount && status.account_status !== "active") {
+      status.next_step = diagnoseAccount(currentSession).message;
+    } else if (!status.authenticated) {
+      status.next_step = "Sign in inside Yaps. The connector will use that desktop session automatically.";
     } else if (status.account_status !== "active") {
       status.next_step = "Open Yaps and start an available free trial or activate Yaps Pro.";
-    } else if (!mcpBinary) {
-      status.next_step = "Update Yaps to restore the local Memory server.";
+    } else if (!status.memory_server_available) {
+      status.diagnostic_code = connectionDiagnosis?.code || "vault_connector_unavailable";
+      status.next_step = connectionDiagnosis?.message
+        || "Update Yaps to restore the local Memory server.";
     } else {
       status.next_step = "Yaps is ready.";
     }
@@ -361,6 +426,31 @@ async function connectorStatus({ cliBinary, mcpBinary, runCli = runCliJson }) {
     status.next_step = error.message;
   }
   return status;
+}
+
+async function requireActiveAccount(dependencies) {
+  if (!dependencies.cliBinary) {
+    const diagnosis = dependencies.connectionDiagnosis || {
+      code: "cli_missing",
+      message: "Yaps is not installed. Download Yaps from https://yaps.ai/download, open it, sign in, and finish setup.",
+    };
+    const error = new Error(diagnosis.message);
+    error.diagnosticCode = diagnosis.code;
+    throw error;
+  }
+  const session = dependencies.resolveSession
+    ? await dependencies.resolveSession()
+    : dependencies.session;
+  if (session?.auth?.authenticated === true && session.auth.status === "active") {
+    return session;
+  }
+  const diagnosis = dependencies.diagnoseAccount?.(session || {});
+  const error = new Error(
+    diagnosis?.message
+      || "Open Yaps and sign in with an active free trial or Yaps Pro. This connector will use that desktop session automatically.",
+  );
+  error.diagnosticCode = diagnosis?.code || "account_not_active";
+  throw error;
 }
 
 async function transcribeMedia(args, { cliBinary, runCli = runCliJson }) {
@@ -493,6 +583,9 @@ async function extractAudio(args, { cliBinary, runCli = runCliJson }) {
 }
 
 export async function callCliTool(name, args = {}, dependencies) {
+  if (name !== "yaps_connector_status") {
+    await requireActiveAccount(dependencies);
+  }
   switch (name) {
     case "yaps_connector_status":
       return textResult(await connectorStatus(dependencies));

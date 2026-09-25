@@ -31,7 +31,7 @@ const serverJson = {
   $schema: "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   name: "io.github.richawo/yaps",
   title: "Yaps",
-  description: "Local Memory, transcription, subtitles, meeting transcripts, translation, and media tools.",
+  description: "Transcription, subtitles, meeting transcripts, translation, audio conversion, and private memory.",
   repository: {
     url: "https://github.com/richawo/yaps-mcp",
     source: "github",
